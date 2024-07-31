@@ -20,12 +20,12 @@ class AutoMl:
 
     def main_function(self, df):
         self.df = df
-        self.features, self.label, self.num_indices, self.cat_indices = self.data_preprocessing(self.df)
+        self.features, self.label, self.num_list, self.cat_list = self.data_preprocessing(self.df)
         self.X_train, self.X_test, self.y_train, self.y_test = self.train_test_data(self.features,
                                                                                 self.label)
         # Save Train, Test data
         self.save_train_test_data()
-        self.training_features = self.feature_encoding(self.X_train, self.num_indices, self.cat_indices)
+        self.training_features = self.feature_encoding(self.X_train, self.num_list, self.cat_list), 
         self.training_label = self.y_train[[self.target_column]].to_numpy()
         # Check if Regression or Classification Problem
         if self.objective.lower() == 'classification':
@@ -101,21 +101,22 @@ class AutoMl:
 
         features = pd.concat([num_df, cat_df], axis=1)
 
-        # Store the slice ranges for numerical and categorical columns
-        num_indices = list(range(len(num_df.columns)))
-        cat_indices = list(range(len(num_df.columns), len(features.columns)))
+        # Get column names for numerical and categorical features
+        num_list = num_df.columns.tolist()
+        cat_list = cat_df.columns.tolist()
 
-        print('Saving numerical column name as list')
-        joblib.dump(num_df.columns,f'{self.folder_path}/numeric_column_list')
+        # Save column names
+        print('Saving numerical column names as list')
+        joblib.dump(num_list, f'{self.folder_path}/numeric_column_list')
         print('Saving categorical column names as list')
-        joblib.dump(cat_df.columns,f'{self.folder_path}/categorical_column_list')
+        joblib.dump(cat_list, f'{self.folder_path}/categorical_column_list')
         print('Saving order of column names as list')
-        joblib.dump(features.columns,f'{self.folder_path}/feature_column_order')
-        print('Data Preprocessing Completed')
-        return features, label , num_indices, cat_indices
+        joblib.dump(features.columns.tolist(), f'{self.folder_path}/feature_column_order')
 
-    def feature_encoding(self, train_features, num_indices, cat_indices):
-        
+        print('Data Preprocessing Completed')
+        return features, label , num_list, cat_list
+
+    def feature_encoding(self, train_features, num_list, cat_list):
         print('Starting Feature Encoding')
 
         # Create the pipelines
@@ -123,35 +124,31 @@ class AutoMl:
             ('imputer', SimpleImputer(strategy='median')),
             ('std_scaler', StandardScaler())
         ])
-    
+        
         cat_pipeline = Pipeline([
             ('imputer', SimpleImputer(strategy='most_frequent')),
             ('one-hot', OneHotEncoder(handle_unknown='ignore', sparse=False))
         ])
-    
+        
         # Define the full pipeline conditionally
-        if num_indices and cat_indices:
-            full_pipeline = ColumnTransformer([
-                ('numerical', num_pipeline, slice(num_indices[0], num_indices[-1] + 1)),
-                ('categorical', cat_pipeline, slice(cat_indices[0], cat_indices[-1] + 1))
-            ])
-        elif num_indices:
-            full_pipeline = ColumnTransformer([
-                ('numerical', num_pipeline, slice(num_indices[0], num_indices[-1] + 1))
-            ])
-        elif cat_indices:
-            full_pipeline = ColumnTransformer([
-                ('categorical', cat_pipeline, slice(cat_indices[0], cat_indices[-1] + 1))
-            ])
-        else:
+        transformers = []
+        if num_list:
+            transformers.append(('numerical', num_pipeline, num_list))
+        if cat_list:
+            transformers.append(('categorical', cat_pipeline, cat_list))
+
+        if not transformers:
             raise ValueError("Both Numeric and Categorical Variables are missing")
-    
+
+        full_pipeline = ColumnTransformer(transformers)
+
         # Fit and transform the training features
         training_features = full_pipeline.fit_transform(train_features)
         joblib.dump(full_pipeline, f'{self.folder_path}/transformer_pipeline')
-    
+
         print('Feature Encoding Completed and Transformer Pipeline Saved')
         return training_features
+
 
     def train_test_data(self, feature, label):
         print('Splitting Data into Test and Train datasets')
