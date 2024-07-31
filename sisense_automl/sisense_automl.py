@@ -60,8 +60,8 @@ class AutoMl:
         feature = df.drop(columns=self.target_column)
 
         # Splitting data into Numerical and Object datatype DataFrame
-        num_df = feature.select_dtypes(include=['number','float'])
-        obj_df = feature.select_dtypes(exclude=['number','float'])
+        num_df = feature.select_dtypes(include=['float64', 'int64'])
+        obj_df = feature.select_dtypes(exclude=['float64', 'int64'])
 
         # Creating Categorical and Date DataFrame using Object DF
         date_df = pd.DataFrame()
