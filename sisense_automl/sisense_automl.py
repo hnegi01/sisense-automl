@@ -104,17 +104,20 @@ class AutoMl:
         # Get column names for numerical and categorical features
         num_list = num_df.columns.tolist()
         cat_list = cat_df.columns.tolist()
+        date_list = date_df.columns.tolist()
 
         # Save column names
         print('Saving numerical column names as list')
         joblib.dump(num_list, f'{self.folder_path}/numeric_column_list')
         print('Saving categorical column names as list')
         joblib.dump(cat_list, f'{self.folder_path}/categorical_column_list')
+        joblib.dump(date_list, f'{self.folder_path}/date_column_list')
+        print('Saving order of column names as list')
         print('Saving order of column names as list')
         joblib.dump(features.columns.tolist(), f'{self.folder_path}/feature_column_order')
 
         print('Data Preprocessing Completed')
-        return features, label , num_list, cat_list
+        return features, label , num_list, cat_list, date_list
 
     def feature_encoding(self, train_features, num_list, cat_list):
         print('Starting Feature Encoding')

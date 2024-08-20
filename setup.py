@@ -6,7 +6,7 @@ setup(
     description="A package for automating machine learning processes using Sisense and AutoML.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/hnegi01/sisense_automl.git",
+    url="https://github.com/hnegi01/sisense-automl.git",
     author="Himanshu Negi",
     author_email="himanshu.negi.08@gmail.com",
     license="MIT",
