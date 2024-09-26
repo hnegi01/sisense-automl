@@ -8,31 +8,45 @@ from datetime import datetime
 from autosklearn.classification import AutoSklearnClassifier
 from autosklearn.regression import AutoSklearnRegressor
 from autosklearn.metrics import roc_auc, average_precision, accuracy, f1, precision, recall, log_loss
+import joblib
+import pandas as pd
 
 
 class AutoMl:
-    def __init__(self, data, target_column, objective, folder_path):
+    def __init__(self, data, target_column, objective, folder_path,
+                 time_left_for_this_task=None, per_run_time_limit=None, ensemble_size=None, n_jobs=None):
         self.data = data
         self.target_column = target_column
         self.objective = objective
         self.folder_path = folder_path
+
+        # Optional parameters with default values
+        self.time_left_for_this_task = time_left_for_this_task
+        self.per_run_time_limit = per_run_time_limit
+        self.ensemble_size = ensemble_size
+        self.n_jobs = n_jobs
+
         self.main_function(self.data)
 
     def main_function(self, df):
         self.df = df
         self.features, self.label, self.num_list, self.cat_list = self.data_preprocessing(self.df)
-        self.X_train, self.X_test, self.y_train, self.y_test = self.train_test_data(self.features,
-                                                                                self.label)
+        self.X_train, self.X_test, self.y_train, self.y_test = self.train_test_data(self.features, self.label)
+
         # Save Train, Test data
         self.save_train_test_data()
-        self.training_features = self.feature_encoding(self.X_train, self.num_list, self.cat_list), 
+
+        # Feature encoding
+        self.training_features = self.feature_encoding(self.X_train, self.num_list, self.cat_list)
         self.training_label = self.y_train[[self.target_column]].to_numpy()
+
         # Check if Regression or Classification Problem
         if self.objective.lower() == 'classification':
             model_type = 'classifier'
         else:
             model_type = 'regressor'
 
+        # Train model
         model = self.train_model(model_type, self.training_features, self.training_label)
 
         # Save model
@@ -49,23 +63,19 @@ class AutoMl:
         self.y_test.to_csv(f'{self.folder_path}/y_test.csv', index=False)
         print("y_test is Saved")
 
-
     def data_preprocessing(self, df):
         print('Starting Data Preprocessing')
-        # Dropping duplicate records
         df = df.drop_duplicates()
 
-        # Creating feature and label variables
         label = df[[self.target_column]]
         feature = df.drop(columns=self.target_column)
 
-        # Splitting data into Numerical and Object datatype DataFrame
         num_df = feature.select_dtypes(include=['float64', 'int64'])
         obj_df = feature.select_dtypes(exclude=['float64', 'int64'])
 
-        # Creating Categorical and Date DataFrame using Object DF
         date_df = pd.DataFrame()
         cat_df = pd.DataFrame()
+
         for col in obj_df.columns:
             if obj_df[col].dtype == 'object':
                 try:
@@ -83,7 +93,6 @@ class AutoMl:
                 except ValueError:
                     cat_df[col] = obj_df[col]
 
-        # Converting numerical column to categorical by checking if a numerical column has less than equal to 5 distinct values
         for col in num_df.columns:
             if num_df[col].nunique() <= 5:
                 try:
@@ -92,48 +101,37 @@ class AutoMl:
                 except ValueError:
                     pass
 
-        # Convert each date column to multiple categorical features
         for col in date_df:
             cat_df[col + '_YEAR'] = date_df[col].dt.year.astype(str)
             cat_df[col + '_MONTH'] = date_df[col].dt.month.astype(str)
-            # cat_df[col + '_WEEKDAY'] = date_df[col].dt.day_name().isin(['Saturday', 'Sunday']).astype(str)
-            # cat_df[col + '_DAY'] = date_df[col].dt.day.astype(str)
 
         features = pd.concat([num_df, cat_df], axis=1)
 
-        # Get column names for numerical and categorical features
         num_list = num_df.columns.tolist()
         cat_list = cat_df.columns.tolist()
         date_list = date_df.columns.tolist()
 
-        # Save column names
-        print('Saving numerical column names as list')
         joblib.dump(num_list, f'{self.folder_path}/numeric_column_list')
-        print('Saving categorical column names as list')
         joblib.dump(cat_list, f'{self.folder_path}/categorical_column_list')
         joblib.dump(date_list, f'{self.folder_path}/date_column_list')
-        print('Saving order of column names as list')
-        print('Saving order of column names as list')
         joblib.dump(features.columns.tolist(), f'{self.folder_path}/feature_column_order')
 
         print('Data Preprocessing Completed')
-        return features, label , num_list, cat_list, date_list
+        return features, label, num_list, cat_list
 
     def feature_encoding(self, train_features, num_list, cat_list):
         print('Starting Feature Encoding')
 
-        # Create the pipelines
         num_pipeline = Pipeline([
             ('imputer', SimpleImputer(strategy='median')),
             ('std_scaler', StandardScaler())
         ])
-        
+
         cat_pipeline = Pipeline([
             ('imputer', SimpleImputer(strategy='most_frequent')),
             ('one-hot', OneHotEncoder(handle_unknown='ignore', sparse=False))
         ])
-        
-        # Define the full pipeline conditionally
+
         transformers = []
         if num_list:
             transformers.append(('numerical', num_pipeline, num_list))
@@ -144,14 +142,11 @@ class AutoMl:
             raise ValueError("Both Numeric and Categorical Variables are missing")
 
         full_pipeline = ColumnTransformer(transformers)
-
-        # Fit and transform the training features
         training_features = full_pipeline.fit_transform(train_features)
         joblib.dump(full_pipeline, f'{self.folder_path}/transformer_pipeline')
 
         print('Feature Encoding Completed and Transformer Pipeline Saved')
         return training_features
-
 
     def train_test_data(self, feature, label):
         print('Splitting Data into Test and Train datasets')
@@ -160,26 +155,35 @@ class AutoMl:
 
     def train_model(self, model_type, X_train, y_train):
         print('Model Training Started')
+
+        # Use the provided parameters or fall back to default values
+        time_left_for_this_task = self.time_left_for_this_task or (30 * 60 if model_type == 'classifier' else 15 * 60)
+        per_run_time_limit = self.per_run_time_limit or (6 * 60 if model_type == 'classifier' else 4 * 60)
+        ensemble_size = self.ensemble_size or 5
+        n_jobs = self.n_jobs or 8
+
         if model_type == 'classifier':
-            automl_model = AutoSklearnClassifier(time_left_for_this_task=30 * 60,  #15 * 60
-                                                 per_run_time_limit=6 * 60, # 15 * 60
-                                                 ensemble_kwargs={"ensemble_size": 5},
-                                                 n_jobs=8,
-                                                 scoring_functions=[roc_auc, average_precision, accuracy,
-                                                                    f1, precision, recall, log_loss])
+            automl_model = AutoSklearnClassifier(
+                time_left_for_this_task=time_left_for_this_task,
+                per_run_time_limit=per_run_time_limit,
+                ensemble_kwargs={"ensemble_size": ensemble_size},
+                n_jobs=n_jobs,
+                scoring_functions=[roc_auc, average_precision, accuracy, f1, precision, recall, log_loss]
+            )
         else:
-            automl_model = AutoSklearnRegressor(time_left_for_this_task=15 * 60,
-                                                per_run_time_limit=4 * 60,
-                                                ensemble_kwargs={"ensemble_size": 5},
-                                                n_jobs=8)
+            automl_model = AutoSklearnRegressor(
+                time_left_for_this_task=time_left_for_this_task,
+                per_run_time_limit=per_run_time_limit,
+                ensemble_kwargs={"ensemble_size": ensemble_size},
+                n_jobs=n_jobs
+            )
 
         automl_model.fit(X_train, y_train)
         print('Model Training Completed')
         return automl_model
 
     def save_model(self, model, model_type):
-        now = datetime.now()
-        now = now.strftime('%Y%m%d%H%M%S')
+        now = datetime.now().strftime('%Y%m%d%H%M%S')
         file_name = f'automl_{model_type}_{now}'
         joblib.dump(model, f'{self.folder_path}/{file_name}')
         print(f'{model_type.capitalize()} model saved - {file_name}')

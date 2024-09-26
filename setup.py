@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="sisense-automl",
-    version="0.1.4",
+    version="0.1.6",
     description="A package for automating machine learning processes using Sisense and AutoML.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
