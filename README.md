@@ -2,6 +2,9 @@
 
 `sisense-automl` is a Python package for automating machine learning processes using Sisense and AutoML. It provides easy-to-use interfaces for data preprocessing, model training, and evaluation.
 
+## ⚠️ Disclaimer
+This package is **not an official feature supported by Sisense**. It is an independent project demonstrating how AutoML can be integrated with Sisense. Use at your own discretion, and note that Sisense does not provide support for this package.
+
 ## ⚠️ Compatibility Warning
 This package requires **Python 3.9** to function correctly. Please ensure you are using the correct Python version.
 
