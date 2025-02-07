@@ -2,6 +2,14 @@
 
 `sisense-automl` is a Python package for automating machine learning processes using Sisense and AutoML. It provides easy-to-use interfaces for data preprocessing, model training, and evaluation.
 
+## ⚠️ Compatibility Warning
+This package requires **Python 3.9** to function correctly. Please ensure you are using the correct Python version.
+
+**Why only Python 3.9?**
+- **Auto-sklearn** does not support Python 3.10 or newer.
+- **Scikit-learn 0.24.0** (required by Auto-sklearn) works best with Python 3.9.
+- **NumPy 1.23+** removed `numpy.distutils`, which some dependencies rely on.
+
 ## Features
 
 - Preprocesses data by handling duplicates, splitting numerical and categorical features, and encoding them appropriately.
@@ -27,13 +35,7 @@ sudo apt-get install swig -y
 
 ## Python-Level Dependencies
 
-The package will automatically install the required Python dependencies, including:
-
-- Cython
-- scikit-learn==0.24.0
-- auto-sklearn
-- seaborn
-- matplotlib
+The package will automatically install the required Python dependencies as specified in `setup.py`.
 
 ## Usage
 
@@ -69,4 +71,3 @@ Pull requests are welcome. For major changes, please open an issue first
 to discuss what you would like to change.
 
 Please make sure to update tests as appropriate.
-
